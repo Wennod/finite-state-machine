@@ -7,11 +7,12 @@ class FSM {
         if (!config) {
             throw new Error('config is\'not passed');
         }
+        this.config = config;
         this.initialState = config.initial;
         this.state = config.initial;
         this.history = [config.initial];
-        this.triggerDisabler = false;
         this.undoHistory = [];
+        this.triggerDisabler = false;
     }
 
     /**
@@ -27,30 +28,16 @@ class FSM {
      * @param state
      */
     changeState(state) {
-        switch(state) {
-            case 'hungry':
-                this.state = state;
-                this.history.push(this.state);
-                this.triggerDisabler = true;
-            break;
-            case 'busy':
-                this.state = state;
-                this.history.push(this.state);
-                this.triggerDisabler = true;
-            break;
-            case 'sleeping':
-                this.state = state;
-                this.history.push(this.state);
-                this.triggerDisabler = true;
-            break;
-            case 'normal':
-                this.state = state;
-                this.history.push(this.state);
-                this.triggerDisabler = true;
-            break;
-            default: 
+        if (!this.config.states.hasOwnProperty(state)) {
             throw new Error('There is no such state!');
-            break;
+        }
+
+        for(var _state in this.config.states){
+            if (_state == state) {
+                this.state = state;
+                this.history.push(this.state);
+                this.triggerDisabler = true;
+            }
         }
     }
 
@@ -58,71 +45,25 @@ class FSM {
      * Changes state according to event transition rules.
      * @param event
      */
-    trigger(event) {
-        switch(this.state)
-        {
-            case 'hungry':
-                if (event == 'eat') {
-                    this.state = 'normal';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
-                        this.triggerDisabler = true;
-                    }
-                } else {
-                    throw new Error('No such event in this state');
+    trigger(event) { 
+        for (var _stateCheck in this.config.states) {
+            if (_stateCheck == this.state) {
+                if (!this.config.states[_stateCheck].transitions.hasOwnProperty(event)) {
+                    throw new Error('No such event in this state!');
                 }
-            break;
-            case 'busy':
-                if (event == 'get_tired') {
-                    this.state = 'sleeping';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
+            }
+        }
+        for (var _state in this.config.states) {
+            if(_state == this.state){
+                for (var transition in this.config.states[_state].transitions) {
+                    if(transition == event){
+                        this.state = this.config.states[_state].transitions[transition];
+                        this.history.push(this.state);
                         this.triggerDisabler = true;
+                        return true;
                     }
-                }else if (event == 'get_hungry') {
-                    this.state = 'hungry';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
-                        this.triggerDisabler = true;
-                    }
-                }else {
-                    throw new Error('No such event in this state');
                 }
-                
-            break;
-            case 'sleeping':
-                if (event == 'get_hungry') {
-                    this.state = 'hungry';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
-                        this.triggerDisabler = true;
-                    }
-                }else if (event == 'get_up') {
-                    this.state = 'normal';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
-                        this.triggerDisabler = true;
-                    }
-                }else {
-                    throw new Error('No such event in this state');
-                }
-                
-            break;
-            case 'normal':
-                if (event == 'study') {
-                    this.state = 'busy';
-                    this.history.push(this.state);
-                    if (this.triggerDisabler == false) {
-                        this.triggerDisabler = true;
-                    }
-                }else {
-                    throw new Error('No such event in this state');
-                }
-                
-            break;
-            default: 
-            throw new Error('There is no such state!');
-            break;           
+            }
         }
     }
 
@@ -130,7 +71,7 @@ class FSM {
      * Resets FSM state to initial.
      */
     reset() {
-        this.state = 'normal';
+        this.state = this.initialState;
         this.history.push(this.state);
     }
 
@@ -141,29 +82,19 @@ class FSM {
      * @returns {Array}
      */
     getStates(event) {
-            switch(event) {
-            case 'study':
-                return ['normal'];               
-                break;
-            case 'get_tired':
-                return ['busy'];                
-                break;
-            case 'get_hungry':
-                return ['busy','sleeping'];
-                break;
-            case 'eat':
-                return ['hungry'];
-            break;
-            case 'get_up':
-                return ['sleeping'];
-            default: 
-                if (!event) {
-                   return ['normal', 'busy', 'hungry', 'sleeping'];
-                }else {
-                       return [];
-                      }
-            break;
+        var inStates = []; 
+        if (!event) {
+            for (var _state in this.config.states) {
+                inStates.push(_state);
+            }
+        }else {
+            for (var _state in this.config.states) {
+                if (this.config.states[_state].transitions.hasOwnProperty(event)) {
+                    inStates.push(_state);
+                }                    
+            }
         }
+        return inStates;
     }
 
     /**
@@ -198,7 +129,6 @@ class FSM {
         else{
             this.state = this.undoHistory[this.undoHistory.length - 1];
             this.history.push(this.undoHistory.pop());
-            //this.state = this.history[this.history.length - 1];
             return true;
         }
     }
